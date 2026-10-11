@@ -1,0 +1,68 @@
+# ============================================================================
+# ⚠ 模式必须锚定（前导 /）—— 否则 `data/`、`models/` 会把源码目录一起忽略：
+#     web/backend/app/models/            （SQLAlchemy 模型，源码）
+#     desktop/offerflow_desktop/data/    （内置题库，源码）
+#   各端目录另有自己的 .gitignore 处理局部规则。
+# ============================================================================
+
+# ---- 构建产物 ----
+dist/
+build/
+build_old_*/
+*.egg-info/
+.eggs/
+
+# ---- 依赖 ----
+node_modules/
+.venv/
+venv/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- 数据库 / 运行时数据（锚定到根）----
+*.db
+*.sqlite
+*.sqlite3
+/data/
+/db_pg/
+/backups/
+/downloads/
+/chroma_db/
+
+# ---- 二进制模型与索引（体积大）----
+/models/
+/seed/
+
+# ---- 密钥与环境变量 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.jks
+*.keystore
+gradle.properties
+!gradle.properties.example
+local.properties
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---- 日志 / 临时 ----
+*.log
+_shell*
+_tmp_*
+_navshots/
+_repro*.py
+*.bak

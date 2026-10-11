@@ -1,0 +1,37 @@
+PySide6>=6.6
+requests>=2.31
+python-docx>=1.1
+pypdf>=4.0
+
+# ---- 本地文档解析（local_ai/parse.py，P1）----
+# PDF → markdown，自带 PDFium（pdfium.dll 7MB + _liteparse.pyd 20MB，共约 27MB），
+# 免模型、免网络、约 10ms/页；扫描件 PDF 由它渲染页图后交给下面的 Windows 系统 OCR，
+# 因此**不需要 Tesseract**（LiteParse 自带 OCR 走 Tesseract，已在代码里 ocr_enabled=False 关掉）。
+# 许可 Apache-2.0，可随闭源 EXE 分发。
+# 注意：它处理 Office(docx/xlsx/pptx) 是转调 LibreOffice（未装则报 ParseError），
+#      本项目 DOCX 仍走 python-docx，**不要**为它去装几百 MB 的 LibreOffice。
+liteparse>=2.15
+
+# ---- Windows 系统内置 OCR（core/ocr.py，用于「截图识别 JD」）----
+# 走系统 winrt 引擎（windows.media.ocr，zh-Hans-CN）：
+#   · 免模型权重、免 Tesseract 二进制，不增大安装包
+#   · 仅 Windows 10+ 可用；缺失时 is_ocr_available() 返回 False，UI 优雅降级提示手动粘贴
+#   · 需系统已安装中文语言包（zh-Hans-CN），否则引擎创建失败
+# 下列 8 个包版本已实机验证（2026-09-30）；winrt API 跨版本有变动风险，故钉死版本。
+winrt-runtime==3.2.1
+winrt-Windows.Foundation==3.2.1
+winrt-Windows.Foundation.Collections==3.2.1
+winrt-Windows.Globalization==3.2.1
+winrt-Windows.Graphics.Imaging==3.2.1
+winrt-Windows.Media.Ocr==3.2.1
+winrt-Windows.Storage==3.2.1
+winrt-Windows.Storage.Streams==3.2.1
+
+# ---- 本地 embedding（local_ai/embedder.py，P2）----
+# 用 fastembed + BAAI/bge-small-zh-v1.5（512 维）在本地重算向量，替代"下载服务器向量"。
+#   · **必须钉 0.7.3**：与服务器 app/core/embeddings.py 同版本 → 同一向量空间，
+#     本地检索结果与服务器 /corpus/search 可逐位对得上（2026-09-30 实测分数完全一致）。
+#   · 传递依赖 onnxruntime（CPU 推理，约 65MB 安装体积）+ tokenizers + huggingface-hub。
+#   · **模型文件不联网下载**：随包分发 models/fast-bge-small-zh-v1.5（91MB，见 OfferFlow.spec），
+#     embedder.model_dir() 优先读它；仅在缺失时才回退 fastembed 默认缓存（那时才会联网）。
+fastembed==0.7.3

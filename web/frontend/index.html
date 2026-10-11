@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- viewport-fit=cover：让页面延伸到刘海区域，再由安全区变量把内容推回来 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta
+      name="description"
+      content="OfferFlow —— AI 驱动的求职全流程助手：简历生成与优化、岗位分析、面试准备、薪资谈判、投递追踪"
+    />
+    <!-- 添加到主屏幕后以独立窗口运行（Android/Chrome + iOS/Safari） -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="OfferFlow" />
+    <title>OfferFlow</title>
+    <!--
+      兼容性兜底 —— 必须排在所有 module 之前执行（module 在 body 里，这里在 head）。
+      Android 11 出厂的系统 WebView 是 Chrome 83，而 React 19 / react-router 7 等
+      依赖会用到这里几个较新的标准 API。缺了它们，页面一渲染就抛 TypeError 直接白屏
+      （实测报的是 "Object.hasOwn is not a function"）。
+      注意：这些是**运行时 API**，打包器只降语法、不会补 API，所以只能在这里兜。
+    -->
+    <script>
+      (function () {
+        var d = Object.defineProperty;
+
+        if (typeof Object.hasOwn !== "function") {
+          d(Object, "hasOwn", {
+            value: function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); },
+            writable: true,
+            configurable: true
+          });
+        }
+
+        if (typeof window.structuredClone !== "function") {
+          window.structuredClone = function (v) {
+            // 只覆盖纯数据（本项目拿它克隆的都是普通对象）；函数 / DOM 节点本就不可克隆
+            return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+          };
+        }
+
+        function at(n) {
+          n = Math.trunc(n) || 0;
+          if (n < 0) { n += this.length; }
+          return (n < 0 || n >= this.length) ? undefined : this[n];
+        }
+        if (typeof Array.prototype.at !== "function") {
+          d(Array.prototype, "at", { value: at, writable: true, configurable: true });
+        }
+        if (typeof String.prototype.at !== "function") {
+          d(String.prototype, "at", { value: at, writable: true, configurable: true });
+        }
+
+        if (typeof window.WeakRef !== "function") {
+          // 真弱引用没法在 JS 层实现（要 GC 集成），退化成"永不回收"的引用。
+          // 代价只是缓存对象晚释放；deref() 永远命中，功能与正确性不受影响。
+          window.WeakRef = function (t) { this.deref = function () { return t; }; };
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,72 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.offerflow.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.offerflow.app"
+        minSdk 24
+        targetSdk 34
+        // 版本号跟随产品线（与电脑版同一条版本线，避免两个端各说各话）
+        versionCode 2506
+        versionName "2.5.6"
+
+        // 站点入口地址：手机版外壳加载的线上服务
+        // 走本地联调时用 -POFFERFLOW_HOME_URL=http://10.0.2.2:8099/ 覆盖（10.0.2.2 是模拟器里的宿主机）
+        // 默认指向模拟器里的宿主机（10.0.2.2），自建部署时用 -POFFERFLOW_HOME_URL 覆盖
+        def homeUrl = project.findProperty("OFFERFLOW_HOME_URL") ?: "http://10.0.2.2:8001/"
+        // 注意：正则用单引号字符串 —— 双引号里 $ 会被 Groovy 当成插值，编译期直接报错
+        def siteOrigin = homeUrl.replaceAll('/+$', '')
+        buildConfigField "String", "HOME_URL", "\"${homeUrl}\""
+        // 版本清单（用于「检查更新」）
+        buildConfigField "String", "UPDATE_MANIFEST", "\"${siteOrigin}/downloads/android.json\""
+        // 手机版安装包地址
+        buildConfigField "String", "APK_URL", "\"${siteOrigin}/downloads/OfferFlow-android.apk\""
+    }
+
+    // 仓库不包含签名私钥；没有 keystore 时跳过签名配置，产出未签名包（便于他人自建）
+    def hasReleaseKeystore = rootProject.file("keystore/offerflow.jks").exists()
+
+    signingConfigs {
+        release {
+            if (hasReleaseKeystore) {
+                storeFile rootProject.file("keystore/offerflow.jks")
+                storePassword project.findProperty("OFFERFLOW_STORE_PASSWORD") ?: ""
+                keyAlias project.findProperty("OFFERFLOW_KEY_ALIAS") ?: ""
+                keyPassword project.findProperty("OFFERFLOW_KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+// 本工程刻意不引入任何第三方依赖：WebView 外壳全部使用 Android 框架原生 API，
+// 这样安装包最小（数百 KB），也不会因为 androidX 版本冲突影响构建。
+dependencies { }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  当前线上服务以「IP + HTTP」对外（尚无域名与证书）。
+  Android 9 起默认禁止明文流量，这里显式放行，否则外壳内的页面会白屏。
+  一旦站点切到 HTTPS，把 cleartextTrafficPermitted 改回 false 即可收口。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -1,0 +1,18 @@
+# 关闭行尾自动转换：让 git 原样存字节。
+#
+# 为什么不让 git 归一化行尾：
+#   这套源码在 Windows 上编辑、在 Linux（Docker）里部署，两边行尾本来就不一致
+#   （错题本里专门有一条「行尾归一单独一个 commit」）。若交给 git 自动转换，
+#   它会在每次 add 时改写工作区内容，后果是：
+#     ① `git status` 永远显示"有改动"，判据全被噪音淹没；
+#     ② 「提交进库的字节」与「PyInstaller 实际读到的字节」不一致 ——
+#        而打包产物是按文件字节 sha256 校验的（release/inject_sha256.py）。
+* -text
+
+# 显式标二进制（禁止 diff/merge 去碰它们）
+*.exe  binary
+*.ico  binary
+*.png  binary
+*.db   binary
+*.pyd  binary
+*.dll  binary

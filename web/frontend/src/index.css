@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: #f8fafc;
+}
+
+/* ---- 移动端 / 独立窗口（添加到主屏幕）适配 ---- */
+
+/* 点击时不出现灰色高亮块（移动端浏览器默认行为，观感更像原生） */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 独立窗口下状态栏是透明的，顶栏要自己把内容推到刘海下方，
+   同时整体高度要跟着变大，否则会把 logo 挤扁 */
+.of-mobile-header {
+  height: calc(3.5rem + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.of-mobile-header-spacer {
+  height: calc(3.5rem + env(safe-area-inset-top, 0px));
+}
+
+/* 底部横条（iPhone 手势条）避让 */
+.of-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 抽屉/侧边栏：上下都避让（桌面端 env() 为 0，无副作用） */
+.of-safe-y {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+::selection {
+  background: #c7d2fe;
+  color: #1e1b4b;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+@layer components {
+  /* ---- Card ---- */
+  .of-card {
+    @apply rounded-2xl border border-slate-200/70 bg-white shadow-card;
+  }
+  .of-card-hover {
+    @apply rounded-2xl border border-slate-200/70 bg-white shadow-card transition-all duration-200 hover:shadow-hover hover:border-brand-200;
+  }
+
+  /* ---- 窄屏可横向滚动的表格容器 ---- */
+  /* 滚动条做细一些，手机/触控板上不显笨重 */
+  .of-table-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .of-table-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+  .of-table-scroll::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 999px;
+  }
+
+  /* ---- Button ---- */
+  .of-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .of-btn-primary {
+    @apply of-btn bg-brand-600 text-white shadow-soft hover:bg-brand-700 active:scale-[0.98];
+  }
+  .of-btn-ghost {
+    @apply of-btn bg-transparent text-slate-600 hover:bg-slate-100;
+  }
+  .of-btn-outline {
+    @apply of-btn border border-slate-300 bg-white text-slate-700 hover:border-brand-400 hover:text-brand-600;
+  }
+  .of-btn-danger {
+    @apply of-btn bg-rose-50 text-rose-600 hover:bg-rose-100;
+  }
+  /* 按钮内图标固定为 1em（跟随字号），避免 svg 的 h-full/w-full 在 flex 中异常撑大按钮 */
+  .of-btn > svg {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+  }
+
+  /* ---- Input ---- */
+  .of-input {
+    @apply h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-50;
+  }
+  .of-select {
+    @apply of-input cursor-pointer pr-8 appearance-none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 0.875rem;
+  }
+  .of-textarea {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:ring-4 focus:ring-brand-50;
+  }
+
+  /* ---- Badge / Tag ---- */
+  .of-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* ---- Alert ---- */
+  .of-alert-error {
+    @apply mb-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700;
+  }
+  .of-alert-success {
+    @apply mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700;
+  }
+
+  /* ---- Page header ---- */
+  .of-page-title {
+    @apply text-2xl font-bold tracking-tight text-slate-900;
+  }
+  .of-section-title {
+    @apply text-base font-semibold text-slate-900;
+  }
+
+  /* ---- Empty state ---- */
+  .of-empty {
+    @apply flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 px-6 py-12 text-center;
+  }
+}
+
+/* ===================== 深色模式覆盖 ===================== */
+.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+.dark .bg-white { background-color: #1e293b; }
+.dark .bg-white\/95 { background-color: rgba(30, 41, 59, 0.95); }
+.dark .bg-slate-50 { background-color: #0f172a; }
+.dark .bg-slate-50\/80 { background-color: rgba(15, 23, 42, 0.8); }
+.dark .bg-slate-50\/50 { background-color: rgba(15, 23, 42, 0.5); }
+.dark .bg-slate-100 { background-color: #334155; }
+.dark .bg-slate-200 { background-color: #334155; }
+.dark .text-slate-900 { color: #f1f5f9; }
+.dark .text-slate-800 { color: #e2e8f0; }
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #cbd5e1; }
+.dark .text-slate-500 { color: #94a3b8; }
+.dark .text-slate-400 { color: #64748b; }
+.dark .border-slate-200 { border-color: #334155; }
+.dark .border-slate-100 { border-color: #1e293b; }
+.dark .divide-slate-50 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+.dark .hover\:bg-slate-50:hover { background-color: #1e293b; }
+.dark .hover\:bg-slate-50\/50:hover { background-color: rgba(30, 41, 59, 0.5); }
+.dark .hover\:bg-slate-100:hover { background-color: #334155; }
+.dark .hover\:text-slate-900:hover { color: #f1f5f9; }
+.dark .bg-brand-50 { background-color: rgba(99, 102, 241, 0.16); }
+.dark .text-brand-600 { color: #818cf8; }
+.dark .text-brand-700 { color: #a5b4fc; }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.12); }

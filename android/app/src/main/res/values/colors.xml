@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与网页端 tailwind brand 色板保持一致 -->
+    <color name="brand">#6366F1</color>
+    <color name="brand_dark">#4338CA</color>
+    <color name="page_bg">#F8FAFC</color>
+    <color name="text_main">#0F172A</color>
+    <color name="text_sub">#64748B</color>
+</resources>

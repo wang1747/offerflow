@@ -1,0 +1,18 @@
+# Android 构建配置模板
+#   cp gradle.properties.example gradle.properties  然后按需修改
+#   ⚠ gradle.properties 已被 .gitignore 排除（含签名口令，绝不入库）
+
+# ---- 站点入口地址（手机版外壳加载的线上服务）----
+#   默认取 app/build.gradle 里的 http://10.0.2.2:8001/（模拟器访问宿主机 localhost）
+#   构建时也可用 -POFFERFLOW_HOME_URL=http://your-host/ 覆盖
+# OFFERFLOW_HOME_URL=http://10.0.2.2:8001/
+
+# ---- release 签名（自建发布时才需要）----
+#   仓库不包含签名私钥 keystore/offerflow.jks；没有它时只产出未签名包。
+#   自己发布请生成 keystore 放到 android/keystore/offerflow.jks 并填下面三项：
+# OFFERFLOW_STORE_PASSWORD=
+# OFFERFLOW_KEY_ALIAS=
+# OFFERFLOW_KEY_PASSWORD=
+
+# ---- JVM ----
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
