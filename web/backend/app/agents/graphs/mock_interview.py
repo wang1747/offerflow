@@ -2,11 +2,13 @@
 
 import logging
 import re
+from typing import List, Optional
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.core.llm import get_user_llm_or_raise
 from app.core.prompt_guards import INJECTION_GUARD, attach
+from app.core.text_similarity import dedup_normalize, is_dup_pair
 from app.models.user import User
 from app.observability.tracing import trace_operation
 
@@ -16,6 +18,9 @@ INTERVIEWER_PROMPT = """你是一个专业的面试官，正在面试一位求�
 
 根据候选人的简历和岗位要求，提出专业的技术或行为问题。
 面试风格：专业、友好、有洞察力。
+
+【硬要求】不要重复已经问过的问题，也不要换汤不换药地重问同一个考点 ——
+如果用户消息里给出了「已经问过的题目」，下一题必须换一个角度或换一个考点。
 
 只输出问题内容，不要有其他文字。"""
 
@@ -52,6 +57,18 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"^```\s*", "", text)
     text = re.sub(r"```$", "", text)
     return text.strip()
+
+
+def _is_duplicate_question(candidate: str, asked_questions: List[str]) -> bool:
+    """候选题目是否与**已问过的题**重复（一模一样的换行 / 标点差异也算）。"""
+    fp = dedup_normalize(candidate)
+    if not fp:
+        return False
+    for asked in asked_questions or []:
+        other = dedup_normalize(asked)
+        if other and is_dup_pair(fp, other):
+            return True
+    return False
 
 
 def generate_interview_summary(
@@ -95,9 +112,21 @@ def generate_question(
     jd_text: str,
     user: User,
     previous_question: str = "",
-    previous_answer: str = ""
+    previous_answer: str = "",
+    asked_questions: Optional[List[str]] = None,
 ) -> str:
-    """生成面试问题"""
+    """生成面试问题。
+
+    第 1 点（全场题单）：`asked_questions` 是**整场**已问过的题目，一并喂给模型，
+    而不是只给上一问上一答 —— 旧版模型看不到前面问过什么，很容易第 5 题又把第 2 题
+    的考点重问一遍（用户会觉得 AI 没在听）。
+
+    第 2 点（确定性去重）：模型仍可能无视要求重复出题，所以出完**再判一次**；
+    命中重复就带着「上一题问过什么」重试一次（最多一次，不无限循环），
+    仍重复就照原样返回并记一条 warning —— 卡在出题循环里比重复一题更糟。
+    """
+    asked = [str(q).strip() for q in (asked_questions or []) if str(q or "").strip()]
+
     prompt = f"""【简历】\n{resume_text}\n\n【岗位JD】\n{jd_text}"""
 
     if previous_question and previous_answer:
@@ -105,22 +134,44 @@ def generate_question(
         prompt += f"【候选人回答】\n{previous_answer}\n"
         prompt += "\n请根据候选人的回答，生成下一个面试问题。"
 
+    if asked:
+        prompt += ("\n\n【已经问过的题目（严禁重复，也不要换个说法重问同一考点）】\n"
+                   + "\n".join(f"- {q}" for q in asked))
+
     prompt += "\n\n只输出问题内容，不要有其他文字。"
 
-    try:
+    def _invoke(text: str) -> str:
         llm = get_user_llm_or_raise(user)
         with trace_operation("mock_interview_question", getattr(user, "id", None)):
             response = llm.invoke([
                 SystemMessage(content=INTERVIEWER_PROMPT),
-                HumanMessage(content=prompt),
+                HumanMessage(content=text),
             ])
         return _clean_text(response.content)
+
+    try:
+        question = _invoke(prompt)
     except ValueError as e:
         logger.warning(f"生成问题失败: {e}")
         return str(e)
     except Exception as e:
         logger.error(f"生成问题失败: {e}")
         return "请介绍一下你最自豪的项目经历。"
+
+    if not asked or not _is_duplicate_question(question, asked):
+        return question
+
+    retry_prompt = prompt + (
+        "\n\n⚠️ 你上一次生成的问题与已问题目重复了，必须换一个**不同的考点**重新出一题。")
+    try:
+        retry = _invoke(retry_prompt)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"出题重试失败，返回原题: {e}")
+        return question
+    if retry and not _is_duplicate_question(retry, asked):
+        return retry
+    logger.warning("出题仍与已问题目重复，按原样返回（避免卡在出题循环里）")
+    return retry or question
 
 
 def evaluate_answer(

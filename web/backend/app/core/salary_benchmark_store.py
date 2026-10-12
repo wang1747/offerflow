@@ -84,9 +84,14 @@ def refresh(
     data_year: str,
     source: str,
     note: str,
+    report: Optional[dict] = None,
 ) -> SalaryBenchmark:
-    """写入新版本基准数据（旧版本置 inactive，保留可回滚）。"""
-    cleaned = benchmark.sanitize_data(new_data)
+    """写入新版本基准数据（旧版本置 inactive，保留可回滚）。
+
+    `report`（可选出参）透传给 `sanitize_data`，把「哪些字段被静默兜底 / 丢弃」
+    记下来，供调用方在界面上如实告知（见 `salary_benchmark.sanitize_data` 的 docstring）。
+    """
+    cleaned = benchmark.sanitize_data(new_data, report=report)
     if not cleaned:
         raise ValueError("基准数据不合法，已拒绝写入")
 

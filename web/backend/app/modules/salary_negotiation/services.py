@@ -259,15 +259,28 @@ def import_benchmark(
     """导入权威市场薪资数据（覆盖模型估算），写入新版本。
 
     `new_data` 经 `salary_benchmark.sanitize_data` 校验，不合法抛 ValueError。
+
+    返回体在版本信息之外多带 `data_report`（`unknown_keys` / `replaced_keys` /
+    `missing_keys` 三桶）：`sanitize_data` 会把不认识的字段名丢弃、把非法值或缺失字段
+    换成内置默认值；不说清楚的话用户会看到「已导入到 vN」却发现数字一个都没变。
+    `unknown_keys` 同时保留一个平铺键，供旧前端读取（向后兼容）。
     """
+    report: dict = {}
     benchmark_store.refresh(
         db,
         new_data,
         data_year=data_year or "最新",
         source=source or "手动导入的权威数据",
         note=note or "手动导入",
+        report=report,
     )
-    return benchmark_store.active_data(db)
+    info = get_benchmark_info(db)
+    if any(report.get(bucket) for bucket in ("unknown_keys", "replaced_keys", "missing_keys")):
+        logger.warning("导入的基准数据有字段未按所给值生效：%s", report)
+        info["data_report"] = report
+        if report.get("unknown_keys"):
+            info["unknown_keys"] = report["unknown_keys"]      # 向后兼容旧前端
+    return info
 
 
 def get_benchmark_info(db: Session) -> dict:

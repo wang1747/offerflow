@@ -463,7 +463,14 @@ async def generate_questions_endpoint(
     logger.info(f"用户 {current_user.id} 成功生成 {len(questions)} 道面试题")
     return {
         "success": True,
-        "data": {"questions": questions},
+        "data": {
+            "questions": questions,
+            # raw_count / dropped_count：模型给出的题目条数、以及因分类/难度格式
+            # 认不出来被丢弃的条数。二者分开后，前端能把「模型没给题」与
+            # 「给了但格式不合规」区分开提示，而不是笼统一句「未生成题目，请重试」。
+            "raw_count": result.get("raw_count", len(questions)),
+            "dropped_count": result.get("dropped_count", 0),
+        },
         "error": None
     }
 

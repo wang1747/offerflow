@@ -319,23 +319,75 @@ def default_data() -> Dict:
     }
 
 
-def sanitize_data(data: Dict) -> Dict:
+def unknown_keys(data: Dict) -> Dict[str, List[str]]:
+    """列出导入数据里**不在白名单**、会被 `sanitize_data` 丢弃的 key。
+
+    为什么需要它：`sanitize_data` 对不认识的 key 静默忽略（这是**有意**的 ——
+    防止脏数据把整张表算坏），但导入方会看到「已导入到 v2」而实际数值一个都没变，
+    属于典型的「提示成功、结果不符预期」。这里把被丢弃的 key 交出去，
+    让界面能直说「这些字段名不认识，已忽略」。
+
+    返回形如 `{"degree_base": ["bachelor", "master_985"]}`；无不认识的 key 时返回空 dict。
+    """
+    if not isinstance(data, dict):
+        return {}
+    tables = (
+        ("degree_base", DEGREE_BASE),
+        ("direction_coef", DIRECTION_COEF),
+        ("city_tiers", CITY_TIERS),
+    )
+    out: Dict[str, List[str]] = {}
+    for name, default_map in tables:
+        raw = data.get(name)
+        if not isinstance(raw, dict):
+            continue
+        unknown = sorted(str(k) for k in raw if k not in default_map)
+        if unknown:
+            out[name] = unknown
+    return out
+
+
+def _note(report: Optional[Dict], bucket: str, table: str, key) -> None:
+    """把一处「被兜底 / 被丢弃」的字段记进 report（report 为 None 时什么都不做）。"""
+    if report is None:
+        return
+    lst = report.setdefault(bucket, {}).setdefault(table, [])
+    name = str(key)
+    if name not in lst:
+        lst.append(name)
+
+
+def sanitize_data(data: Dict, report: Optional[Dict] = None) -> Optional[Dict]:
     """校验并清洗外部（LLM 生成 / 手动导入）的基准数据，防止脏数据破坏计算。
 
     规则：
-    - degree_base 的每个 key 必须是 [low, high] 两个正数；
-    - direction_coef 的每个 key 必须是 [系数, 标签]；
-    - city_tiers 的每个 key 必须是 [系数, 标签]；
-    - 清洗后不完整则返回 None 由调用方回退默认数据。
+    - degree_base 的每个 key 必须是 [low, high] 两个正数、且 high >= low；
+    - direction_coef / city_tiers 的每个 key 必须是 [系数, 标签]，系数落在 0.3~3.0；
+    - 非法或缺失的 key 用内置默认值兜底（保持结构完整，不让一个坏 key 拖垮整表）；
+    - 顶层不是 dict、或三个子表都不是 dict 时返回 None，由调用方拒绝写入。
+
+    `report`（可选出参）会把「哪些字段其实没按你给的值生效」交出来，分三桶：
+    - `replaced_keys`：在白名单里、但**取值非法**，已换成内置默认值；
+    - `missing_keys`：在白名单里、但**导入数据没给**，已用内置默认值补齐；
+    - `unknown_keys`：**不在白名单**，整条被丢弃。
+
+    为什么需要它：兜底是**有意**的（一个坏 key 不该拖垮整表），但它是**静默**的 ——
+    用户看到「已导入到 vN」却发现自己填的数字一个都没变，只能反复重导。
+    旧版只把 `unknown_keys` 单独算一次（还不能反映被替换/缺失的），
+    `replaced_keys` / `missing_keys` 全程无感。
     """
     if not isinstance(data, dict):
         return None
 
-    def _clean_degree_base(raw):
-        cleaned = {}
+    def _clean_degree_base(raw) -> Optional[Dict[str, List[int]]]:
         if not isinstance(raw, dict):
             return None
-        for k in DEGREE_BASE:
+        cleaned: Dict[str, List[int]] = {}
+        for k, default_v in DEGREE_BASE.items():
+            if k not in raw:
+                _note(report, "missing_keys", "degree_base", k)
+                cleaned[k] = list(default_v)
+                continue
             v = raw.get(k)
             if isinstance(v, (list, tuple)) and len(v) == 2:
                 try:
@@ -344,16 +396,26 @@ def sanitize_data(data: Dict) -> Dict:
                     return None
                 if low > 0 and high >= low:
                     cleaned[k] = [int(round(low)), int(round(high))]
+                else:
+                    _note(report, "replaced_keys", "degree_base", k)
+                    cleaned[k] = list(default_v)
             else:
-                # 缺 key 时用默认值兜底，保证结构完整
-                cleaned[k] = list(DEGREE_BASE[k])
+                _note(report, "replaced_keys", "degree_base", k)
+                cleaned[k] = list(default_v)
+        for k in raw:
+            if k not in DEGREE_BASE:
+                _note(report, "unknown_keys", "degree_base", k)
         return cleaned
 
-    def _clean_coef(raw, default_map):
-        cleaned = {}
+    def _clean_coef(raw, default_map, table: str) -> Optional[Dict[str, List]]:
         if not isinstance(raw, dict):
             return None
-        for k in default_map:
+        cleaned: Dict[str, List] = {}
+        for k, default_v in default_map.items():
+            if k not in raw:
+                _note(report, "missing_keys", table, k)
+                cleaned[k] = list(default_v)
+                continue
             v = raw.get(k)
             if isinstance(v, (list, tuple)) and len(v) == 2:
                 try:
@@ -361,17 +423,22 @@ def sanitize_data(data: Dict) -> Dict:
                 except (TypeError, ValueError):
                     return None
                 if 0.3 <= coef <= 3.0:
-                    label = str(v[1]) if v[1] else default_map[k][1]
+                    label = str(v[1]) if v[1] else default_v[1]
                     cleaned[k] = [coef, label]
                 else:
-                    cleaned[k] = list(default_map[k])
+                    _note(report, "replaced_keys", table, k)
+                    cleaned[k] = list(default_v)
             else:
-                cleaned[k] = list(default_map[k])
+                _note(report, "replaced_keys", table, k)
+                cleaned[k] = list(default_v)
+        for k in raw:
+            if k not in default_map:
+                _note(report, "unknown_keys", table, k)
         return cleaned
 
     degree_base = _clean_degree_base(data.get("degree_base"))
-    direction_coef = _clean_coef(data.get("direction_coef"), DIRECTION_COEF)
-    city_tiers = _clean_coef(data.get("city_tiers"), CITY_TIERS)
+    direction_coef = _clean_coef(data.get("direction_coef"), DIRECTION_COEF, "direction_coef")
+    city_tiers = _clean_coef(data.get("city_tiers"), CITY_TIERS, "city_tiers")
 
     if not degree_base or not direction_coef or not city_tiers:
         return None

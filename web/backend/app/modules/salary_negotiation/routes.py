@@ -175,7 +175,8 @@ async def benchmark_import(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     logger.info("用户 %s 导入薪资基准数据，当前版本 v%s", current_user.id, data.get("version"))
-    return {"success": True, "data": get_benchmark_info(db), "error": None}
+    # data 已是「版本信息 + 可选的 data_report」：导入时哪些字段被丢弃 / 替换 / 缺失
+    return {"success": True, "data": data, "error": None}
 
 
 @router.post(

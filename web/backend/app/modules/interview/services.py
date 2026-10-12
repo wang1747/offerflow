@@ -1,5 +1,4 @@
 import logging
-import difflib
 import json
 import re
 from typing import Optional, Tuple
@@ -17,6 +16,7 @@ from app.agents.graphs.mock_interview import (
 )
 from app.core.llm import get_user_llm_or_raise
 from app.core.prompt_guards import INJECTION_GUARD, attach
+from app.core.text_similarity import dedup_normalize, is_dup_pair
 from app.observability.tracing import trace_operation
 
 logger = logging.getLogger(__name__)
@@ -25,14 +25,26 @@ _ARTICLE_SORT_FIELDS = {"created_at", "company", "position"}
 
 
 def _find_duplicate(raw_content: str, db: Session, user_id: str) -> Optional[InterviewArticle]:
-    """按规范化文本相似度查找重复面经（相似度 >= 0.9 视为重复）"""
-    normalized = re.sub(r"\s+", "", raw_content or "").lower()
+    """按规范化文本相似度查找重复面经（相似度 >= 0.9 视为重复）。
+
+    两路判据（见 `core.text_similarity.is_dup_pair`），旧版只有第一路：
+    1. 整段相似度 ≥ 0.9；
+    2. **分段指纹包含度 ≥ 0.9** —— 一份长面经被补了几段再导入，整段相似度会掉到
+       0.9 以下而漏判「重复导入同一份面经」；指纹按「较短一方的格子被覆盖多少」算，
+       补内容不影响它。
+
+    另外旧版的规范化只 `re.sub(r"\\s+", "", ...)`：全角逗号 / 句号 / 括号都留着，
+    同一份面经把 `，` 改成 `,` 就能绕过查重。这里统一改用 `dedup_normalize`
+    （全半角归一 + 去标点 + 转小写）。
+    """
+    normalized = dedup_normalize(raw_content)
+    if not normalized:
+        return None
     articles = db.query(InterviewArticle).filter(
         InterviewArticle.user_id == user_id
     ).all()
     for article in articles:
-        existing = re.sub(r"\s+", "", article.raw_content or "").lower()
-        if normalized and existing and difflib.SequenceMatcher(None, normalized, existing).ratio() >= 0.9:
+        if is_dup_pair(normalized, dedup_normalize(article.raw_content)):
             return article
     return None
 
@@ -399,7 +411,8 @@ def submit_interview_answer(
         jd_text=jd.raw_text,
         user=user,
         previous_question=session.current_question,
-        previous_answer=answer
+        previous_answer=answer,
+        asked_questions=list(session.questions or []),   # 整场已问过的题，避免重复考点
     )
     current_questions = list(session.questions or [])
     current_questions.append(next_question)
