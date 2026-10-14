@@ -14,6 +14,8 @@ JD 解析 → 简历生成 / 优化 → 岗位匹配 → 模拟面试 → 薪资
   <a href="#界面一览">界面</a> ·
   <a href="#三端架构">架构</a> ·
   <a href="#设计取舍为什么这么做">设计取舍</a> ·
+  <a href="#常见问题">常见问题</a> ·
+  <a href="#路线图">路线图</a> ·
   <a href="#参与贡献">参与贡献</a>
 </p>
 
@@ -21,7 +23,7 @@ JD 解析 → 简历生成 / 优化 → 岗位匹配 → 模拟面试 → 薪资
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white">
   <img alt="PySide6" src="https://img.shields.io/badge/PySide6-Qt%206-41CD52?logo=qt&logoColor=white">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.140-009688?logo=fastapi&logoColor=white">
   <img alt="LangGraph" src="https://img.shields.io/badge/LangGraph-1.2-1C3C3C?logo=langchain&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-yellow.svg">
   <img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg">
@@ -216,6 +218,45 @@ cd web && pytest backend/tests/ -q
 - 手机版壳是 WebView 方案，**离线只能保证已缓存的外壳页面**，业务功能需要联网。
 - 桌面版向量检索首次使用需要联网下载 embedding 模型（约 90 MB，见「快速开始」）。
 - HTTPS、应用层凭据轮转等安全项尚未在本仓库默认开启（自建部署时请自行配置反代与证书）。
+
+---
+
+## 常见问题
+
+**必须联网才能用吗？**
+
+网页版与手机版需要联网（后端独立部署）。桌面版主体可离线：五大 AI 能力默认走本地，只有向量检索首次使用需要联网下载 embedding 模型（约 90 MB）。
+
+**要自己准备 API Key 吗？**
+
+是。项目用 **BYOK**（自带 Key），支持任意 OpenAI 兼容接口——DeepSeek / OpenAI / Moonshot / 自建都行。桌面版在「模型设置」填，网页版在「AI 模型设置」填。
+
+**AI 会自己改我的投递记录吗？**
+
+不会。所有写操作（如改投递状态）走「模型提议 → 你确认 → 才写库」，而且写工具**根本不在模型的可用工具清单里**，它想写也写不动。
+
+**AI 会不会替我编简历内容？**
+
+会尝试，但拦得住。生成/优化后要过**事实保真校验**：简历里没写过的技能、证书、数字会被拦下或标红；优化稿若丢了硬事实（邮箱/电话/年份/关键词）会整段回退原文。
+
+**数据存在哪里？**
+
+自建部署时业务数据在 PostgreSQL、语义检索在 ChromaDB；桌面版另有一份本地 SQLite 副本与本地向量索引，可完全离线运行。
+
+**支持 Windows 以外的系统吗？**
+
+桌面版基于 PySide6，主体跨平台；但发票/证书 OCR 依赖 **Windows 系统 OCR**，非 Windows 平台上该功能不可用。
+
+---
+
+## 路线图
+
+> 只列已确定要做的，不写画饼项。
+
+- **移动端功能补齐**：面经库、模拟面试、薪资谈判、交流中心目前桌面版/网页版已有、手机版未覆盖，后续对齐。
+- **部署安全默认项**：HTTPS、应用层凭据轮转、防火墙收口等目前留给自建部署者，计划补进默认配置。
+- **桌面端增量更新**：当前升级需重下完整安装包（约 120 MB），计划改为增量下发。
+- **评测集扩充**：事实保真与岗位匹配评分的回归用例持续补充。
 
 ---
 
